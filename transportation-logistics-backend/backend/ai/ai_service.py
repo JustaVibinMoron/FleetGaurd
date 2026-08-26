@@ -1,5 +1,4 @@
 from backend.ai import ai_client
-from backend.ai import gemini_client
 from backend.config.settings import get_settings
 from backend.utils.exceptions import AppError
 
@@ -27,6 +26,9 @@ def request_ai_recommendation(context: dict, optimizer_result: dict | None = Non
         return ai_client.http_recommend(context)
     if mode == "gemini":
         try:
+            # Gemini is optional; avoid making non-Gemini deployments depend on it.
+            from backend.ai import gemini_client
+
             return gemini_client.gemini_recommend(context)
         except AppError as error:
             if optimizer_result is None:
