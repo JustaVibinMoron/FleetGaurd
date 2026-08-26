@@ -4,7 +4,6 @@ Application settings.
 This layer exists so secrets and environment-specific values are not
 hard-coded. Values are loaded from a .env file (and real environment variables).
 """
-
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -29,9 +28,11 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
 
-    ai_mode: str = "stub"
+    ai_mode: str = "stub"  # stub | http | gemini
     ai_module_url: str = "http://localhost:8001"
     ai_timeout_seconds: int = 15
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.0-flash"
 
     optimizer_mode: str = "stub"
     optimizer_url: str = "http://localhost:8002"

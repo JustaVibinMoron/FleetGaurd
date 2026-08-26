@@ -27,6 +27,10 @@ class RouteUpdate(CamelModel):
 class RouteOptimizeRequest(CamelModel):
     problem: Optional[str] = Field(default=None, max_length=1000)
     delivery_priority: Optional[str] = Field(default="normal", max_length=32)
+    origin_latitude: Optional[float] = Field(default=None, ge=-90, le=90)
+    origin_longitude: Optional[float] = Field(default=None, ge=-180, le=180)
+    destination_latitude: Optional[float] = Field(default=None, ge=-90, le=90)
+    destination_longitude: Optional[float] = Field(default=None, ge=-180, le=180)
 
 
 class RouteCalculateRequest(CamelModel):

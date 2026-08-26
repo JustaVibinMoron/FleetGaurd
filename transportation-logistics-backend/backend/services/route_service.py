@@ -125,10 +125,24 @@ def optimize_route(
         "distanceKm": route.distance_km,
         "estimatedTimeMinutes": route.estimated_time_minutes,
         "currentRouteStatus": route.route_status.value,
+        "originLatitude": payload.origin_latitude,
+        "originLongitude": payload.origin_longitude,
+        "destinationLatitude": payload.destination_latitude,
+        "destinationLongitude": payload.destination_longitude,
     }
 
     optimizer_result = request_optimizer_plan(context)
-    ai_result = request_ai_recommendation(context)
+    ai_context = {
+        **context,
+        "deliveryStatus": delivery.delivery_status.value,
+        "truckStatus": truck.status.value if truck else None,
+        "truckLocation": truck.current_location if truck else None,
+        "optimizerRecommendation": optimizer_result["recommendedRoute"],
+        "optimizerEstimatedTime": optimizer_result["estimatedTime"],
+        "optimizerFuelSaving": optimizer_result.get("fuelSaving", 0.0),
+        "optimizerReason": optimizer_result["reason"],
+    }
+    ai_result = request_ai_recommendation(ai_context, optimizer_result)
 
     stored = []
     for source, result in (("optimizer", optimizer_result), ("ai", ai_result)):
@@ -146,7 +160,7 @@ def optimize_route(
 
     if route.route_status in {RouteStatus.BLOCKED, RouteStatus.DELAYED, RouteStatus.ACTIVE}:
         route.route_status = RouteStatus.ALTERNATIVE
-        route.estimated_time_minutes = int(ai_result["estimatedTime"])
+        route.estimated_time_minutes = int(optimizer_result["estimatedTime"])
 
     db.commit()
     for row in stored:

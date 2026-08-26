@@ -9,4 +9,4 @@ def request_optimizer_plan(context: dict) -> dict:
         return optimizer_client.http_optimize(context)
     if mode == "function":
         return optimizer_client.function_optimize(context)
-    return optimizer_client.stub_optimize(context)
+    return optimizer_client.deterministic_optimize(context)
