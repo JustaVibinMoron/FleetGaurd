@@ -1,0 +1,135 @@
+{
+  "info": {
+    "name": "TLMS Backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Transportation Logistics Management System — import this collection, set baseUrl and token."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000" },
+    { "key": "token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/health"
+      }
+    },
+    {
+      "name": "Auth — Register",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"admin@tlms.dev\",\n  \"password\": \"password123\",\n  \"fullName\": \"Ada Admin\"\n}"
+        },
+        "url": "{{baseUrl}}/api/auth/register"
+      }
+    },
+    {
+      "name": "Auth — Login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"admin@tlms.dev\",\n  \"password\": \"password123\"\n}"
+        },
+        "url": "{{baseUrl}}/api/auth/login"
+      }
+    },
+    {
+      "name": "Auth — Me",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{baseUrl}}/api/auth/me"
+      }
+    },
+    {
+      "name": "Trucks — Create",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"registrationNumber\": \"MH12AB1234\",\n  \"maxCapacityKg\": 10000,\n  \"currentLoadKg\": 0,\n  \"currentLocation\": \"Delhi\",\n  \"status\": \"AVAILABLE\"\n}"
+        },
+        "url": "{{baseUrl}}/api/trucks"
+      }
+    },
+    {
+      "name": "Trucks — List",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{baseUrl}}/api/trucks"
+      }
+    },
+    {
+      "name": "Deliveries — Create",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"origin\": \"Delhi\",\n  \"destination\": \"Mumbai\",\n  \"loadKg\": 7000,\n  \"truckId\": 1\n}"
+        },
+        "url": "{{baseUrl}}/api/deliveries"
+      }
+    },
+    {
+      "name": "Deliveries — Update status",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"deliveryStatus\": \"PICKED_UP\"\n}"
+        },
+        "url": "{{baseUrl}}/api/deliveries/1/status"
+      }
+    },
+    {
+      "name": "Routes — Create",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"deliveryId\": 1,\n  \"startLocation\": \"Delhi\",\n  \"destination\": \"Mumbai\",\n  \"distanceKm\": 1400,\n  \"estimatedTimeMinutes\": 1320,\n  \"routeStatus\": \"ACTIVE\"\n}"
+        },
+        "url": "{{baseUrl}}/api/routes"
+      }
+    },
+    {
+      "name": "Routes — Optimize",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"problem\": \"Road blockage\",\n  \"deliveryPriority\": \"high\"\n}"
+        },
+        "url": "{{baseUrl}}/api/routes/1/optimize"
+      }
+    }
+  ]
+}

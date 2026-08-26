@@ -1,0 +1,24 @@
+# Local PostgreSQL for hackathon development.
+# Start: docker compose up -d
+# Stop:  docker compose down
+
+services:
+  db:
+    image: postgres:16
+    container_name: tlms-postgres
+    environment:
+      POSTGRES_USER: tlms
+      POSTGRES_PASSWORD: tlms
+      POSTGRES_DB: tlms
+    ports:
+      - "5432:5432"
+    volumes:
+      - tlms_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tlms -d tlms"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  tlms_pgdata:
