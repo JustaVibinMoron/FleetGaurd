@@ -79,13 +79,14 @@ def _validate_decision(payload: dict, context: dict) -> dict:
     except ValidationError as exc:
         raise AppError("AI_INVALID_RESPONSE", "Gemini response failed decision validation", 502) from exc
 
-    optimizer = context.get("optimizerRecommendation") or {}
-
+    optimizer_route = context.get("optimizerRecommendation")
+    optimizer_time = context.get("optimizerEstimatedTime")
+    optimizer_fuel = context.get("optimizerFuelSaving")
 
     expected = {
-        "recommendedRoute": optimizer.get("recommendedRoute"),
-        "estimatedTime": optimizer.get("estimatedTime"),
-        "fuelSaving": optimizer.get("fuelSaving"),
+        "recommendedRoute": optimizer_route,
+        "estimatedTime": optimizer_time,
+        "fuelSaving": optimizer_fuel,
     }
 
     received = decision.model_dump(by_alias=True)

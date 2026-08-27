@@ -93,7 +93,7 @@ class GeminiClientTests(unittest.TestCase):
 
     @patch("backend.ai.ai_service.get_settings", return_value=_settings())
     @patch(
-        "backend.ai.ai_service.gemini_client.gemini_recommend",
+        "backend.ai.gemini_client.gemini_recommend",
         side_effect=AppError("AI_UNAVAILABLE", "offline", 503),
     )
     def test_service_returns_optimizer_fallback(self, _recommend, _settings_mock):
