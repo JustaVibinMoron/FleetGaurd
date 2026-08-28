@@ -86,10 +86,13 @@ def _validate_decision(payload: dict, context: dict) -> dict:
     expected = {
         "recommendedRoute": optimizer_route,
         "estimatedTime": optimizer_time,
-        "fuelSaving": optimizer_fuel,
+        "fuelSaving": 0.0 if optimizer_fuel is None else optimizer_fuel,
     }
 
     received = decision.model_dump(by_alias=True)
+    # Normalize received fuelSaving to match expected if both are numeric zeros
+    if expected["fuelSaving"] == 0.0 and received["fuelSaving"] == 0.0:
+        pass  # already matches
     if any(received[key] != value for key, value in expected.items()):
         raise AppError(
             "AI_INVALID_RESPONSE",

@@ -1,9 +1,9 @@
 "use client";
 
-import { osrmApi, routesApi, type OptimizeResult, type BackendRoute } from "@/lib/api";
+import { osrmApi, routesApi, deliveriesApi, type OptimizeResult, type BackendRoute } from "@/lib/api";
 import { useFleet } from "@/context/FleetContext";
 import { formatEta } from "@/lib/routes";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type RouteInfo = {
   from: string;
@@ -14,8 +14,16 @@ type RouteInfo = {
 };
 
 export function RoutePlanner() {
-  const { trucks, selectedTruckId, pushNotification } = useFleet();
-  const selected = trucks.find((t) => t.id === selectedTruckId);
+  const { trucks, selectedTruckId, pushNotification, setCurrentRouteGeometry } = useFleet();
+  const selected = trucks.find((t) => t.id === selectedTruckId) ?? trucks[0] ?? null;
+  const [truckId, setTruckId] = useState<string>(selected?.id ?? "");
+
+  // When trucks list changes (e.g. backend load replaces mocks), ensure
+  // truckId still points to a valid truck.
+  useEffect(() => {
+    if (truckId && trucks.some((t) => t.id === truckId)) return;
+    if (trucks.length > 0) setTruckId(trucks[0].id);
+  }, [trucks, truckId]);
 
   // Known city coordinate map for OSRM calls
   const CITY_COORDS: Record<string, { lat: number; lng: number }> = {
@@ -40,8 +48,10 @@ export function RoutePlanner() {
   const [to, setTo] = useState(
     selected?.destination && selected.destination !== "—" ? selected.destination : "Bhubaneswar",
   );
-  const [truckId, setTruckId] = useState(selected?.id ?? trucks[0]?.id ?? "T-101");
   const [routeResult, setRouteResult] = useState<RouteInfo | null>(null);
+  const [savedRouteId, setSavedRouteId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [optimizing, setOptimizing] = useState(false);
@@ -62,6 +72,9 @@ export function RoutePlanner() {
     setError("");
     setOptimizeResult(null);
     setOptimizeError("");
+    setSaveError("");
+    setSavedRouteId(null);
+    setCurrentRouteGeometry(null);
 
     const startCoords = lookupCoords(from);
     const endCoords = lookupCoords(to);
@@ -90,6 +103,11 @@ export function RoutePlanner() {
         geometry: result.geometry,
       });
 
+      // Pass geometry to the map for polyline rendering
+      if (result.geometry && typeof result.geometry === "object" && "coordinates" in (result.geometry as Record<string, unknown>)) {
+        setCurrentRouteGeometry(result.geometry as { type: string; coordinates: number[][] });
+      }
+
       pushNotification(
         "Route calculated",
         `OSRM route from ${from} to ${to}: ${result.distanceKm.toFixed(1)} km, ${formatEta(Math.round(result.durationMinutes))}`,
@@ -104,8 +122,51 @@ export function RoutePlanner() {
     }
   }
 
-  async function optimizeRoute() {
+  async function saveRoute() {
     if (!routeResult) return;
+    setSaving(true);
+    setSaveError("");
+
+    const startCoords = lookupCoords(from);
+    const endCoords = lookupCoords(to);
+    const numericTruckId = truckId ? (parseInt(truckId.replace(/\D/g, ""), 10) || undefined) : undefined;
+
+    try {
+      // Step 1: Create a delivery
+      const delivery = await deliveriesApi.create({
+        origin: from,
+        destination: to,
+        loadKg: 500,
+        truckId: numericTruckId,
+      });
+
+      // Step 2: Create a route linked to that delivery
+      const route = await routesApi.create({
+        deliveryId: delivery.deliveryId,
+        startLocation: from,
+        destination: to,
+        distanceKm: routeResult.distanceKm,
+        estimatedTimeMinutes: Math.round(routeResult.durationMinutes),
+      });
+
+      setSavedRouteId(route.routeId);
+      pushNotification(
+        "Route saved",
+        `Created delivery D-${delivery.deliveryId} and route R-${route.routeId} for ${from} → ${to}`,
+        "success",
+        truckId,
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to save route";
+      setSaveError(msg);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function optimizeRoute() {
+    const routeId = savedRouteId;
+    if (!routeResult || !routeId) return;
     setOptimizing(true);
     setOptimizeError("");
 
@@ -113,33 +174,21 @@ export function RoutePlanner() {
     const endCoords = lookupCoords(to);
 
     try {
-      // First, try to find an existing route from the backend to optimize
-      const existingRoutes = await routesApi.list();
-      let routeId: number | null = null;
-
-      if (existingRoutes.length > 0) {
-        routeId = existingRoutes[0].routeId;
-      }
-
-      if (routeId !== null) {
-        const result = await routesApi.optimize(routeId, {
-          problem: `Route from ${from} to ${to}`,
-          deliveryPriority: "normal",
-          originLatitude: startCoords?.lat,
-          originLongitude: startCoords?.lng,
-          destinationLatitude: endCoords?.lat,
-          destinationLongitude: endCoords?.lng,
-        });
-        setOptimizeResult(result);
-        pushNotification(
-          "Optimization complete",
-          `Optimizer: ${result.optimizer.reason}`,
-          "success",
-          truckId,
-        );
-      } else {
-        setOptimizeError("No routes available to optimize. Create a delivery and route first.");
-      }
+      const result = await routesApi.optimize(routeId, {
+        problem: `Route from ${from} to ${to}`,
+        deliveryPriority: "normal",
+        originLatitude: startCoords?.lat,
+        originLongitude: startCoords?.lng,
+        destinationLatitude: endCoords?.lat,
+        destinationLongitude: endCoords?.lng,
+      });
+      setOptimizeResult(result);
+      pushNotification(
+        "Optimization complete",
+        `Optimizer: ${result.optimizer.reason}`,
+        "success",
+        truckId,
+      );
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Optimization failed";
       setOptimizeError(msg);
@@ -172,7 +221,9 @@ export function RoutePlanner() {
             onChange={(e) => setTruckId(e.target.value)}
           >
             {trucks.map((t) => (
-              <option key={t.id}>{t.id}</option>
+              <option key={t.id} value={t.id}>
+                {t.id} ({t.driver})
+              </option>
             ))}
           </select>
         </div>
@@ -185,11 +236,21 @@ export function RoutePlanner() {
           >
             {loading ? "Calculating…" : "Find Fastest Route"}
           </button>
+          {routeResult && !savedRouteId && (
+            <button
+              type="button"
+              className="rounded-xl bg-emerald-700 px-4 py-2 font-medium text-white disabled:opacity-50"
+              onClick={saveRoute}
+              disabled={saving}
+            >
+              {saving ? "Saving…" : "Save Route"}
+            </button>
+          )}
           <button
             type="button"
             className="rounded-xl bg-indigo-700 px-4 py-2 font-medium text-white disabled:opacity-50"
             onClick={optimizeRoute}
-            disabled={!routeResult || optimizing}
+            disabled={!savedRouteId || optimizing}
           >
             {optimizing ? "Optimizing…" : "Optimize Route"}
           </button>
@@ -200,6 +261,11 @@ export function RoutePlanner() {
       {error && (
         <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
           {error}
+        </p>
+      )}
+      {saveError && (
+        <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+          {saveError}
         </p>
       )}
 
@@ -215,56 +281,131 @@ export function RoutePlanner() {
             <div>
               <p className="text-sm text-muted">Source: OSRM driving route</p>
               <p className="text-sm text-muted">Truck: {truckId}</p>
+              {savedRouteId && (
+                <p className="text-sm text-emerald-600">✓ Saved as route R-{savedRouteId} — ready to optimize</p>
+              )}
             </div>
           </div>
         </div>
       )}
 
       {/* Optimization result */}
-      {optimizeResult && (
-        <div className="space-y-3">
-          <div className="card border-indigo-200 p-4 dark:border-indigo-800">
-            <h3 className="font-semibold text-indigo-700 dark:text-indigo-300">
-              Deterministic Optimizer
-            </h3>
-            <div className="mt-2 space-y-1 text-sm">
-              <p>Recommended route: <strong>{optimizeResult.optimizer.recommendedRoute}</strong></p>
-              <p>Estimated time: <strong>{optimizeResult.optimizer.estimatedTime} min</strong></p>
-              <p>Fuel saving: <strong>{optimizeResult.optimizer.fuelSaving ?? 0}%</strong></p>
-              <p>Source: <span className="text-muted">{optimizeResult.optimizer.source}</span></p>
-              <p className="text-muted">{optimizeResult.optimizer.reason}</p>
-            </div>
-          </div>
+      {optimizeResult && (() => {
+        const o = optimizeResult.optimizer;
+        const a = optimizeResult.ai;
+        const riskColor = a?.risk === "HIGH" ? "text-red-600" : a?.risk === "MEDIUM" ? "text-amber-600" : "text-emerald-600";
+        const decisionColor = a?.decision === "REROUTE" ? "text-amber-600" : a?.decision === "DELAY" ? "text-red-600" : "text-emerald-600";
+        const timeHrs = Math.floor(o.estimatedTime / 60);
+        const timeMins = o.estimatedTime % 60;
+        const formattedTime = timeHrs > 0 ? `${timeHrs}h ${timeMins}m` : `${timeMins}m`;
 
-          {/* AI / Gemini result */}
-          {optimizeResult.ai && (
-            <div className="card border-amber-200 p-4 dark:border-amber-800">
-              <h3 className="font-semibold text-amber-700 dark:text-amber-300">
-                AI Decision Support
-              </h3>
-              <div className="mt-2 space-y-1 text-sm">
-                {optimizeResult.ai.decision && (
-                  <p>Decision: <strong>{optimizeResult.ai.decision}</strong></p>
-                )}
-                {optimizeResult.ai.risk && (
-                  <p>Risk: <strong>{optimizeResult.ai.risk}</strong></p>
-                )}
-                <p>Recommended route: <strong>{optimizeResult.ai.recommendedRoute}</strong></p>
-                <p>Estimated time: <strong>{optimizeResult.ai.estimatedTime} min</strong></p>
-                <p>Fuel saving: <strong>{optimizeResult.ai.fuelSaving ?? 0}%</strong></p>
-                <p className="text-muted">{optimizeResult.ai.reason}</p>
-                {optimizeResult.ai.actions && optimizeResult.ai.actions.length > 0 && (
-                  <ul className="mt-2 list-inside list-disc text-muted">
-                    {optimizeResult.ai.actions.map((a, i) => (
-                      <li key={i}>{a}</li>
-                    ))}
-                  </ul>
-                )}
+        return (
+          <div className="space-y-3">
+            {/* Optimizer result card */}
+            <div className="card border-indigo-200 p-4 dark:border-indigo-800">
+              <div className="flex items-center gap-2">
+                <span className="inline-block h-2 w-2 rounded-full bg-indigo-500" />
+                <h3 className="font-semibold text-indigo-700 dark:text-indigo-300">
+                  Route Optimization Complete
+                </h3>
               </div>
+
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-xs text-muted">Route</p>
+                    <p className="font-medium">{from} → {to}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted">Assigned Truck</p>
+                    <p className="font-medium">{truckId}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted">Optimization Engine</p>
+                    <p className="font-medium capitalize">{o.source === "ortools" ? "OR-Tools VRP" : o.source}</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-xs text-muted">Estimated Travel Time</p>
+                    <p className="text-lg font-semibold">{formattedTime}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted">Distance</p>
+                    <p className="font-medium">{routeResult?.distanceKm.toFixed(1) ?? "—"} km</p>
+                  </div>
+                  {(o.fuelSaving ?? 0) > 0 && (
+                    <div>
+                      <p className="text-xs text-muted">Fuel Saving</p>
+                      <p className="font-medium text-emerald-600">{o.fuelSaving}%</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <p className="mt-3 text-sm text-muted">{o.reason}</p>
             </div>
-          )}
-        </div>
-      )}
+
+            {/* AI / Gemini result card */}
+            {a && (
+              <div className="card border-amber-200 p-4 dark:border-amber-800">
+                <div className="flex items-center gap-2">
+                  <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
+                  <h3 className="font-semibold text-amber-700 dark:text-amber-300">
+                    AI Decision Support
+                  </h3>
+                </div>
+
+                <div className="mt-3 grid gap-4 sm:grid-cols-3">
+                  {a.decision && (
+                    <div>
+                      <p className="text-xs text-muted">Decision</p>
+                      <p className={`text-lg font-bold ${decisionColor}`}>{a.decision}</p>
+                    </div>
+                  )}
+                  {a.risk && (
+                    <div>
+                      <p className="text-xs text-muted">Risk Level</p>
+                      <p className={`text-lg font-bold ${riskColor}`}>{a.risk}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-xs text-muted">AI Estimated Time</p>
+                    <p className="text-lg font-bold">
+                      {(() => {
+                        const h = Math.floor(a.estimatedTime / 60);
+                        const m = a.estimatedTime % 60;
+                        return h > 0 ? `${h}h ${m}m` : `${m}m`;
+                      })()}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  <div>
+                    <p className="text-xs text-muted">AI Recommendation</p>
+                    <p className="text-sm">{a.reason}</p>
+                  </div>
+
+                  {a.actions && a.actions.length > 0 && (
+                    <div>
+                      <p className="text-xs text-muted">Suggested Actions</p>
+                      <ul className="mt-1 space-y-1">
+                        {a.actions.map((action, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm">
+                            <span className="mt-1 inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400" />
+                            {action}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {optimizeError && (
         <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">

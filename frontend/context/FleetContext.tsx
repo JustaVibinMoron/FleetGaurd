@@ -18,6 +18,12 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 type Toast = { id: string; message: string; severity: AppNotification["severity"] };
 
+/** GeoJSON geometry from the latest OSRM route calculation. */
+export type RouteGeometry = {
+  type: string;
+  coordinates: number[][];
+};
+
 type FleetContextValue = {
   trucks: Truck[];
   partnerTrucks: PartnerTruck[];
@@ -28,6 +34,8 @@ type FleetContextValue = {
   request: TruckRequest | null;
   section: DashboardSection;
   selectedTruckId: string | null;
+  currentRouteGeometry: RouteGeometry | null;
+  setCurrentRouteGeometry: (g: RouteGeometry | null) => void;
   setSection: (s: DashboardSection) => void;
   setSelectedTruckId: (id: string | null) => void;
   updateTruckLoad: (truckId: string, load: number) => void;
@@ -62,6 +70,7 @@ export function FleetProvider({ children }: { children: React.ReactNode }) {
   const [request, setRequest] = useState<TruckRequest | null>(null);
   const [section, setSection] = useState<DashboardSection>("dashboard");
   const [selectedTruckId, setSelectedTruckId] = useState<string | null>(null);
+  const [currentRouteGeometry, setCurrentRouteGeometry] = useState<RouteGeometry | null>(null);
 
   // ------------------------------------------------------------------
   // Fetch real data from FastAPI backend on mount
@@ -79,6 +88,12 @@ export function FleetProvider({ children }: { children: React.ReactNode }) {
         if (Array.isArray(backendTrucks) && backendTrucks.length > 0) {
           const adapted = backendTrucks.map(adaptTruck);
           setTrucks(adapted);
+          // Clear any stale selectedTruckId that refers to a mock truck
+          // which no longer exists in the real backend truck list.
+          setSelectedTruckId((prev) => {
+            if (prev && !adapted.some((t) => t.id === prev)) return null;
+            return prev;
+          });
         }
       })
       .catch(() => {
@@ -127,6 +142,8 @@ export function FleetProvider({ children }: { children: React.ReactNode }) {
       request,
       section,
       selectedTruckId,
+      currentRouteGeometry,
+      setCurrentRouteGeometry,
       setSection,
       setSelectedTruckId,
       updateTruckLoad: (truckId, load) => {
@@ -181,7 +198,7 @@ export function FleetProvider({ children }: { children: React.ReactNode }) {
       clearRequest: () => setRequest(null),
       refreshFromBackend,
     }),
-    [trucks, partnerTrucks, deliveries, emergencies, notifications, toasts, request, section, selectedTruckId],
+    [trucks, partnerTrucks, deliveries, emergencies, notifications, toasts, request, section, selectedTruckId, currentRouteGeometry, setCurrentRouteGeometry],
   );
 
   return <FleetContext.Provider value={value}>{children}</FleetContext.Provider>;

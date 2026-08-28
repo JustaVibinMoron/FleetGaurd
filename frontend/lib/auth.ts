@@ -50,7 +50,11 @@ function persistSession(user: User, remember: boolean) {
   }
 }
 
-/** Attempt to restore session from a stored JWT by calling GET /api/auth/me. */
+/** Attempt to restore session from a stored JWT by calling GET /api/auth/me.
+ *
+ * NOTE: We do NOT clear the token on failure. If the JWT was just stored by a
+ * fresh login, clearing it here would race with FleetContext API calls.
+ */
 export async function restoreSessionFromToken(): Promise<User | null> {
   const jwt = getStoredToken();
   if (!jwt) return null;
@@ -66,8 +70,8 @@ export async function restoreSessionFromToken(): Promise<User | null> {
     persistSession(user, true);
     return user;
   } catch {
-    clearToken();
-    removeKey(SESSION_KEY);
+    // Do NOT clear token here — it may have just been stored by a fresh
+    // login. Instead, return null so the caller knows restoration failed.
     return null;
   }
 }

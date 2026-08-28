@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 
-from backend.optimizer.optimizer_service import request_optimizer_plan
+from backend.optimizer.optimizer_client import deterministic_optimize
 from backend.schemas.simulation import ScenarioType
 from backend.utils.exceptions import AppError
 
@@ -93,7 +93,7 @@ def run_scenario(
     context = build_scenario_context(scenario, distance_km, estimated_time_minutes)
     baseline = _baseline(context, rule, fuel_liters)
     try:
-        optimized = request_optimizer_plan(context)
+        optimized = deterministic_optimize(context)
     except AppError as exc:
         return {
             "simulated": True,

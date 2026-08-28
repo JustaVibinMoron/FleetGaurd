@@ -6,7 +6,7 @@ import { useFleet } from "@/context/FleetContext";
 import { useState } from "react";
 
 export function EmergencyPanel() {
-  const { emergencies, trucks, selectedTruckId, updateEmergencyStatus, addEmergency, setSection } = useFleet();
+  const { emergencies, trucks, selectedTruckId, updateEmergencyStatus, addEmergency, setSection, pushNotification } = useFleet();
   const selected = emergencies.find((e) => e.truckId === selectedTruckId && e.status !== "resolved") ?? emergencies.find((e) => e.status === "open") ?? emergencies[0];
   const [problem, setProblem] = useState("Engine Failure");
   const [truckId, setTruckId] = useState(selectedTruckId ?? "T-104");
@@ -39,13 +39,32 @@ export function EmergencyPanel() {
           <button type="button" className="rounded-xl bg-indigo-700 px-3 py-2 text-sm text-white" onClick={() => setShowReplace(true)}>
             Find Replacement Truck
           </button>
-          <button type="button" className="rounded-xl border border-line bg-surface px-3 py-2 text-sm">
+          <button
+            type="button"
+            className="rounded-xl border border-line bg-surface px-3 py-2 text-sm"
+            onClick={() => {
+              pushNotification(
+                "Driver Contacted",
+                `Contacted driver ${truck?.driver ?? "unknown"} for ${selected.truckId}: ${selected.problem}. Awaiting response.`,
+                "info",
+                selected.truckId,
+              );
+            }}
+          >
             Contact Driver {truck ? `(${truck.driver})` : ""}
           </button>
           <button
             type="button"
             className="rounded-xl border border-line bg-surface px-3 py-2 text-sm"
-            onClick={() => updateEmergencyStatus(selected.id, "acknowledged")}
+            onClick={() => {
+              updateEmergencyStatus(selected.id, "acknowledged");
+              pushNotification(
+                "Emergency Acknowledged",
+                `Emergency ${selected.id} for ${selected.truckId} has been acknowledged and operations have been notified.`,
+                "success",
+                selected.truckId,
+              );
+            }}
           >
             Notify / Acknowledge
           </button>

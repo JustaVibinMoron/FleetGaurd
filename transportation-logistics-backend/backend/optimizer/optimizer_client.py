@@ -134,6 +134,22 @@ def http_optimize(context: dict) -> dict:
         raise AppError("OPTIMIZER_UNAVAILABLE", "Optimizer request failed: {0}".format(exc), 503) from exc
 
 
+def local_optimize(context: dict) -> dict:
+    """Run the OR-Tools VRP engine locally and convert to legacy payload."""
+    try:
+        from backend.optimizer.service import optimize_from_context, plan_to_legacy_payload
+
+        plan = optimize_from_context(context)
+        payload = plan_to_legacy_payload(plan, context)
+        return _validate(payload)
+    except Exception as exc:
+        raise AppError(
+            "OPTIMIZER_FAILED",
+            "OR-Tools optimizer failed: {0}".format(exc),
+            500,
+        ) from exc
+
+
 def function_optimize(context: dict) -> dict:
     try:
         from route_optimizer import optimize_route  # type: ignore

@@ -4,7 +4,7 @@ import { useFleet } from "@/context/FleetContext";
 import { statusLabel } from "@/lib/trucks";
 import type { TruckStatus } from "@/lib/types";
 import L from "leaflet";
-import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import { MapContainer, Marker, Polyline, Popup, TileLayer } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
 const COLORS: Record<TruckStatus, string> = {
@@ -25,7 +25,7 @@ function iconFor(status: TruckStatus, id: string) {
 }
 
 export default function TruckMapInner() {
-  const { trucks, setSelectedTruckId, setSection } = useFleet();
+  const { trucks, setSelectedTruckId, setSection, currentRouteGeometry } = useFleet();
 
   return (
     <div className="h-[420px] overflow-hidden rounded-2xl border border-line">
@@ -61,6 +61,13 @@ export default function TruckMapInner() {
             </Popup>
           </Marker>
         ))}
+        {/* Render OSRM route polyline when available */}
+        {currentRouteGeometry && currentRouteGeometry.coordinates.length > 0 && (
+          <Polyline
+            positions={currentRouteGeometry.coordinates.map((c) => [c[1], c[0]] as [number, number])}
+            pathOptions={{ color: "#2563eb", weight: 4, opacity: 0.8 }}
+          />
+        )}
       </MapContainer>
     </div>
   );

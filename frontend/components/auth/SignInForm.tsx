@@ -9,11 +9,13 @@ export function SignInForm({
   onForgot,
   onCreate,
   error,
+  loading,
 }: {
   onSubmit: (identifier: string, password: string, remember: boolean) => void;
   onForgot: () => void;
   onCreate: () => void;
   error?: string;
+  loading?: boolean;
 }) {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -83,8 +85,8 @@ export function SignInForm({
         </button>
       </div>
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
-      <button type="submit" className="w-full rounded-xl bg-blue-700 px-4 py-2.5 font-semibold text-white transition hover:bg-blue-800">
-        Sign In
+      <button type="submit" disabled={loading} className="w-full rounded-xl bg-blue-700 px-4 py-2.5 font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">
+        {loading ? "Signing in…" : "Sign In"}
       </button>
       <p className="text-center text-sm text-muted">
         New to FleetGuard?{" "}

@@ -16,6 +16,7 @@ export function AuthScreen() {
   const { login, register, demo } = useAuth();
   const [mode, setMode] = useState<Mode>("menu");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [backendOk, setBackendOk] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -95,7 +96,7 @@ export function AuthScreen() {
                   <span className="text-muted">Remember Me on sign-in</span>
                 </div>
                 <p className="rounded-xl border border-line bg-surface p-3 text-xs text-muted">
-                  Demo login: <strong>ops@fleetguard.com</strong> / <strong>{DEMO_PASSWORD}</strong>
+                  Demo login: <strong>admin@fleetguard.com</strong> / <strong>{DEMO_PASSWORD}</strong>
                   {backendOk === false && (
                     <span className="block mt-1 text-amber-600">
                       ⚠ Backend offline — sign-in uses local demo data.
@@ -113,14 +114,21 @@ export function AuthScreen() {
             {mode === "signin" && (
               <SignInForm
                 error={error}
+                loading={loading}
                 onForgot={() => setMode("forgot")}
                 onCreate={() => {
                   setError("");
                   setMode("signup");
                 }}
-                onSubmit={(id, password, remember) => {
-                  const result = login(id, password, remember);
-                  setError(result.ok ? "" : result.error ?? "Unable to sign in.");
+                onSubmit={async (id, password, remember) => {
+                  setLoading(true);
+                  setError("");
+                  try {
+                    const result = await login(id, password, remember);
+                    setError(result.ok ? "" : result.error ?? "Unable to sign in.");
+                  } finally {
+                    setLoading(false);
+                  }
                 }}
               />
             )}
@@ -128,19 +136,26 @@ export function AuthScreen() {
             {mode === "signup" && (
               <SignUpForm
                 error={error}
+                loading={loading}
                 onSignIn={() => {
                   setError("");
                   setMode("signin");
                 }}
-                onSubmit={(values) => {
-                  const result = register(
-                    {
-                      id: `user-${Date.now()}`,
-                      ...values,
-                    },
-                    true,
-                  );
-                  setError(result.ok ? "" : result.error ?? "Unable to create account.");
+                onSubmit={async (values) => {
+                  setLoading(true);
+                  setError("");
+                  try {
+                    const result = await register(
+                      {
+                        id: `user-${Date.now()}`,
+                        ...values,
+                      },
+                      true,
+                    );
+                    setError(result.ok ? "" : result.error ?? "Unable to create account.");
+                  } finally {
+                    setLoading(false);
+                  }
                 }}
               />
             )}

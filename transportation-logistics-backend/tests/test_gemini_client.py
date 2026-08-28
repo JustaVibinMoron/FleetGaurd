@@ -67,6 +67,19 @@ class GeminiClientTests(unittest.TestCase):
 
     @patch("backend.ai.gemini_client.get_settings", return_value=_settings())
     @patch("backend.ai.gemini_client.httpx.post")
+    def test_none_fuel_saving_is_normalized(self, post, _settings_mock):
+        """When the optimizer returns fuelSaving=None, Gemini returning 0.0 should pass validation."""
+        ctx = {**CONTEXT, "optimizerFuelSaving": None}
+        decision = {**VALID_DECISION, "fuelSaving": 0.0}
+        post.return_value = _response(decision)
+
+        result = gemini_recommend(ctx)
+
+        self.assertEqual(result["source"], "gemini")
+        self.assertEqual(result["fuelSaving"], 0.0)
+
+    @patch("backend.ai.gemini_client.get_settings", return_value=_settings())
+    @patch("backend.ai.gemini_client.httpx.post")
     def test_invalid_schema_is_rejected(self, post, _settings_mock):
         invalid = {**VALID_DECISION, "decision": "GO_NOW"}
         post.return_value = _response(invalid)
