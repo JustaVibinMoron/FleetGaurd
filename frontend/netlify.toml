@@ -1,6 +1,0 @@
-[build]
-  command = "npm run build"
-  publish = "."
-
-# Let @netlify/plugin-nextjs manage the .next output, functions, and edge functions.
-# Do NOT set publish = ".next" — the plugin handles this internally.
