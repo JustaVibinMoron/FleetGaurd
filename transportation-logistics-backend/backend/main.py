@@ -9,7 +9,8 @@ from pydantic import ValidationError
 from backend.api.router import api_router
 from backend.config.settings import get_settings
 from backend.database.base import Base
-from backend.database.session import engine
+from backend.database.seeder import seed_if_empty
+from backend.database.session import SessionLocal, engine
 from backend.models import (  # noqa: F401
     Delivery,
     Route,
@@ -25,6 +26,14 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)
+    # Auto-seed admin user and demo trucks on first run (SQLite only).
+    db = SessionLocal()
+    try:
+        seed_if_empty(db)
+    except Exception:
+        pass  # Don't crash startup if seeding fails
+    finally:
+        db.close()
     yield
 
 

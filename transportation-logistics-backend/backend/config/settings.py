@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
     api_prefix: str = "/api"
 
-    database_url: str = "postgresql://tlms:tlms@localhost:5432/tlms"
+    database_url: str = "sqlite:///./data/tlms.db"
 
     secret_key: str = "change-this-to-a-long-random-string"
     algorithm: str = "HS256"
