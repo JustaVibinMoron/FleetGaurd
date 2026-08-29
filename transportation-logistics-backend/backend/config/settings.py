@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 120
 
-    cors_origins: str = "http://localhost:3000,http://localhost:5173"
+    cors_origins: str = "http://localhost:3000,http://localhost:5173,https://fleetguard-sih.netlify.app"
 
     ai_mode: str = "stub"  # stub | http | gemini
     ai_module_url: str = "http://localhost:8001"
