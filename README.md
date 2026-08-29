@@ -278,17 +278,6 @@ Expand optimization to include:
 ### Learning from dispatcher feedback
 Future versions could use dispatcher decisions and historical outcomes to continuously improve recommendations.
 
-## Security
-
-API keys and other secrets should be stored through environment variables and should never be committed to the repository.
-
-For example:
-
-```env
-GEMINI_API_KEY=your_key_here
-```
-
-Do not put real API keys directly into frontend code or commit `.env` files containing secrets.
 
 ## Team
 
